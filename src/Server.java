@@ -5,20 +5,56 @@ import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class Server implements Runnable{
 
     private ArrayList<ConnectionHandler> connections;
+    private ServerSocket server;
+    private boolean done;
+    private ExecutorService pool;
+
+    public Server(){
+        connections = new ArrayList<>();
+        done = false;
+    }
 
     @Override
     public void run() {
         try {
-            ServerSocket server = new ServerSocket(9999);
-            Socket client = server.accept();
-            ConnectionHandler handler = new ConnectionHandler(client);
-            connections.add(handler);
+            server = new ServerSocket(9999);
+            pool = Executors.newCachedThreadPool();
+            while(!done){
+                Socket client = server.accept();
+                ConnectionHandler handler = new ConnectionHandler(client);
+                connections.add(handler);
+                pool.execute(handler);
+            }
         } catch (IOException e) {
-            //TODO: shutdown function
+            shutdown();
+        }
+    }
+
+    public void broadcast(String message){
+        for(ConnectionHandler ch: connections){
+            if(ch != null){
+                ch.sendMessage(message);
+            }
+        }
+    }
+
+    public void shutdown() {
+        try {
+            done = true;
+            if (!server.isClosed()) {
+                server.close();
+            }
+            for(ConnectionHandler ch: connections){
+                ch.shutdown();
+            }
+        } catch(IOException e){
+            // Just Ignore
         }
     }
 
@@ -41,13 +77,52 @@ public class Server implements Runnable{
                 out.println("Enter Your Name: ");
                 name = in.readLine();
                 System.out.println(name + " connected!");
+                broadcast(name + "joined the chat!");
+                String message;
+
+                while ((message = in.readLine()) != null){
+                    if(message.startsWith("/name")){
+                        String[] messageSplit = message.split(" ", 2);
+                        if(messageSplit.length == 2){
+                            broadcast(name + " renamed themselves to " + messageSplit[1]);
+                            System.out.println(name + " renamed themselves to " + messageSplit[1]);
+                            name = messageSplit[1];
+                            out.println("Successfully change name to " + name);
+                        }else{
+                            out.println("No name provided!");
+                        }
+                    }else if(message.startsWith("/quit")){
+                        broadcast(name + " left the chat!");
+                        shutdown();
+                    }else{
+                        broadcast(name + " : " + message);
+                    }
+                }
             } catch (IOException e) {
-                //TODO: shutdown function
+                shutdown();
             }
         }
 
         public void sendMessage(String message){
             out.println(message);
         }
+
+        public void shutdown(){
+            try{
+                in.close();
+                out.close();
+                if(!client.isClosed()){
+                    client.close();
+                }
+            }catch(IOException e){
+                // ignore
+            }
+
+        }
+    }
+
+    public static void main(String[] args) {
+        Server server =  new Server();
+        server.run();
     }
 }
