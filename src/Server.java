@@ -47,6 +47,7 @@ public class Server implements Runnable{
     public void shutdown() {
         try {
             done = true;
+            pool.shutdown();
             if (!server.isClosed()) {
                 server.close();
             }
@@ -77,7 +78,7 @@ public class Server implements Runnable{
                 out.println("Enter Your Name: ");
                 name = in.readLine();
                 System.out.println(name + " connected!");
-                broadcast(name + "joined the chat!");
+                broadcast(name + " joined the chat!");
                 String message;
 
                 while ((message = in.readLine()) != null){
@@ -87,7 +88,7 @@ public class Server implements Runnable{
                             broadcast(name + " renamed themselves to " + messageSplit[1]);
                             System.out.println(name + " renamed themselves to " + messageSplit[1]);
                             name = messageSplit[1];
-                            out.println("Successfully change name to " + name);
+                            out.println("Successfully changed name to " + name);
                         }else{
                             out.println("No name provided!");
                         }
@@ -98,7 +99,7 @@ public class Server implements Runnable{
                         broadcast(name + " : " + message);
                     }
                 }
-            } catch (IOException e) {
+            } catch (Exception e) {
                 shutdown();
             }
         }
